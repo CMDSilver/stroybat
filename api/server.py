@@ -3,19 +3,39 @@ logger = logging.getLogger(__name__)
 
 from sqlalchemy.exc import IntegrityError
 from api.models import Role, User
-from api.schemas import RoleCreate, RoleResponse, UserCreate, UserResponse
+from api.schemas import (
+    RoleCreate,
+    RoleResponse,
+    UserCreate,
+    UserResponse,
+    ProjectCreate,
+    ProjectResponse,
+    ProjectUpdate,
+    StageCreate,
+    StageUpdate,
+    StageResponse,
+    TaskCreate,
+    TaskUpdate,
+    TaskResponse,
+    EstimateCreate,
+    EstimateResponse,
+    EstimateItemCreate,
+    EstimateItemResponse,
+)
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
-from api.schemas import ProjectUpdate
 from api.database import engine, SessionLocal
-from api.models import Project
-from api.schemas import ProjectResponse, ProjectCreate
-
 from api.models import (
-    Role, User, Project, ProjectStage,
-    Task, Estimate, EstimateItem
+    Role,
+    User,
+    Project,
+    ProjectStage,
+    Task,
+    Estimate,
+    EstimateItem,
 )
+
 
 app = FastAPI(title="Stroybat API")
 
