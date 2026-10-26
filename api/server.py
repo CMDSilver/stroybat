@@ -417,6 +417,36 @@ def update_task(task_id: int, data: TaskUpdate):
     finally:
         db.close()
 
+@app.delete("/tasks/{task_id}")
+def delete_task(task_id: int):
+    db = SessionLocal()
+    try:
+        task = db.get(Task, task_id)
+
+        if task is None:
+            raise HTTPException(404, "Task not found")
+
+        db.delete(task)
+        db.commit()
+
+        return {"message": "Задача удалена"}
+
+    except HTTPException:
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            400,
+            "Нельзя удалить задачу: на неё ссылаются другие записи"
+        )
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Ошибка удаления задачи")
+        raise HTTPException(500, "Failed to delete task")
+    finally:
+        db.close()
+
+
 @app.get("/estimates", response_model=list[EstimateResponse])
 def get_estimates(project_id: int | None = None):
     db = SessionLocal()
@@ -557,35 +587,6 @@ def get_estimate_total(estimate_id: int):
         }
     finally:
         db.close()
-
-    @app.post("/login", response_model=UserResponse)
-    def login(login_data: LoginRequest):
-        db = SessionLocal()
-
-        try:
-            user = db.scalars(
-                select(User).where(
-                    User.username == login_data.username
-                )
-            ).first()
-
-            if (
-                    user is None
-                    or not user.is_active
-                    or not verify_password(
-                login_data.password,
-                user.password_hash,
-            )
-            ):
-                raise HTTPException(
-                    status_code=401,
-                    detail="Неверный логин или пароль",
-                )
-
-            return user
-
-        finally:
-            db.close()
 
 
 @app.post("/login", response_model=UserResponse)
