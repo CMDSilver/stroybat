@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -46,10 +49,17 @@ def get_projects():
         projects = db.scalars(select(Project)).all()
         return projects
 
+
     except SQLAlchemyError:
+
+        logger.exception("Ошибка при получении проектов")
+
         raise HTTPException(
+
             status_code=500,
+
             detail="Failed to get projects"
+
         )
 
     finally:
