@@ -153,3 +153,29 @@ def create_project(project_data: ProjectCreate):
 
     finally:
         db.close()
+
+
+@app.get("/projects/{project_id}", response_model=ProjectResponse)
+def get_project(project_id: int):
+    db = SessionLocal()
+
+    try:
+        project = db.get(Project, project_id)
+
+        if project is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Project not found"
+            )
+
+        return project
+
+    except SQLAlchemyError:
+        logger.exception("Ошибка при получении проекта")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to get project"
+        )
+
+    finally:
+        db.close()
