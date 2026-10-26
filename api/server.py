@@ -12,6 +12,10 @@ from api.database import engine, SessionLocal
 from api.models import Project
 from api.schemas import ProjectResponse, ProjectCreate
 
+from api.models import (
+    Role, User, Project, ProjectStage,
+    Task, Estimate, EstimateItem
+)
 
 app = FastAPI(title="Stroybat API")
 
@@ -212,5 +216,132 @@ def update_project(project_id: int, project_data: ProjectUpdate):
             detail="Failed to update project"
         )
 
+    finally:
+        db.close()
+
+
+@app.get("/projects/{project_id}/stages",
+         response_model=list[StageResponse])
+def get_stages(project_id: int):
+    db = SessionLocal()
+    try:
+        if db.get(Project, project_id) is None:
+            raise HTTPException(404, "Project not found")
+
+        return db.scalars(
+            select(ProjectStage)
+            .where(ProjectStage.project_id == project_id)
+            .order_by(ProjectStage.sort_order, ProjectStage.id)
+        ).all()
+    finally:
+        db.close()
+
+
+@app.post("/stages", response_model=StageResponse, status_code=201)
+def create_stage(data: StageCreate):
+    db = SessionLocal()
+    try:
+        if db.get(Project, data.project_id) is None:
+            raise HTTPException(404, "Project not found")
+
+        stage = ProjectStage(**data.model_dump())
+        db.add(stage)
+        db.commit()
+        db.refresh(stage)
+        return stage
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Ошибка создания этапа")
+        raise HTTPException(400, "Не удалось создать этап")
+    finally:
+        db.close()
+
+
+@app.patch("/stages/{stage_id}", response_model=StageResponse)
+def update_stage(stage_id: int, data: StageUpdate):
+    db = SessionLocal()
+    try:
+        stage = db.get(ProjectStage, stage_id)
+        if stage is None:
+            raise HTTPException(404, "Stage not found")
+
+        for key, value in data.model_dump(exclude_unset=True).items():
+            setattr(stage, key, value)
+
+        db.commit()
+        db.refresh(stage)
+        return stage
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Ошибка обновления этапа")
+        raise HTTPException(400, "Не удалось обновить этап")
+    finally:
+        db.close()
+
+
+@app.get("/tasks", response_model=list[TaskResponse])
+def get_tasks(stage_id: int | None = None,
+              status: str | None = None):
+    db = SessionLocal()
+    try:
+        query = select(Task)
+
+        if stage_id is not None:
+            query = query.where(Task.stage_id == stage_id)
+        if status is not None:
+            query = query.where(Task.status == status)
+
+        return db.scalars(query.order_by(Task.id.desc())).all()
+    finally:
+        db.close()
+
+
+@app.post("/tasks", response_model=TaskResponse, status_code=201)
+def create_task(data: TaskCreate):
+    db = SessionLocal()
+    try:
+        task = Task(**data.model_dump())
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+        return task
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            400, "Проверь stage_id, assignee_id и created_by"
+        )
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Ошибка создания задачи")
+        raise HTTPException(500, "Failed to create task")
+    finally:
+        db.close()
+
+
+@app.patch("/tasks/{task_id}", response_model=TaskResponse)
+def update_task(task_id: int, data: TaskUpdate):
+    db = SessionLocal()
+    try:
+        task = db.get(Task, task_id)
+        if task is None:
+            raise HTTPException(404, "Task not found")
+
+        for key, value in data.model_dump(exclude_unset=True).items():
+            setattr(task, key, value)
+
+        db.commit()
+        db.refresh(task)
+        return task
+    except HTTPException:
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(400, "Проверь связанные записи и значения")
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Ошибка обновления задачи")
+        raise HTTPException(500, "Failed to update task")
     finally:
         db.close()

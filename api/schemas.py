@@ -51,3 +51,86 @@ class ProjectUpdate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     manager_id: int | None = None
+
+
+from decimal import Decimal
+
+
+class StageCreate(BaseModel):
+    project_id: int
+    name: str
+    description: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    status: str = "new"
+    sort_order: int = 0
+
+
+class StageUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    status: str | None = None
+    sort_order: int | None = None
+
+
+class StageResponse(StageCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+
+class TaskCreate(BaseModel):
+    title: str
+    description: str | None = None
+    stage_id: int | None = None
+    assignee_id: int | None = None
+    created_by: int
+    priority: str = "medium"
+    status: str = "new"
+    due_date: date | None = None
+
+
+class TaskUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    stage_id: int | None = None
+    assignee_id: int | None = None
+    priority: str | None = None
+    status: str | None = None
+    due_date: date | None = None
+
+
+class TaskResponse(TaskCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+
+# ---------- Сметы ----------
+
+class EstimateCreate(BaseModel):
+    project_id: int
+    name: str
+    description: str | None = None
+    status: str = "draft"
+    created_by: int
+
+
+class EstimateResponse(EstimateCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+
+class EstimateItemCreate(BaseModel):
+    item_type: str
+    name: str
+    description: str | None = None
+    unit: str
+    quantity: Decimal
+    unit_price: Decimal
+
+
+class EstimateItemResponse(EstimateItemCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    estimate_id: int
