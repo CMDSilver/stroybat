@@ -1,6 +1,11 @@
 import logging
 logger = logging.getLogger(__name__)
 
+import os
+import secrets
+
+from api.database import Base
+from api import models
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -69,3 +74,24 @@ def get_projects():
 def db_tables():
     inspector = inspect(engine)
     return {"tables": inspector.get_table_names()}
+
+@app.post("/init-db")
+def init_db(key: str):
+    secret_key = os.getenv("INIT_DB_SECRET")
+
+    if not secret_key or not secrets.compare_digest(key, secret_key):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    try:
+        Base.metadata.create_all(bind=engine)
+        return {
+            "status": "ok",
+            "message": "Таблицы созданы",
+            "tables": list(Base.metadata.tables.keys())
+        }
+    except SQLAlchemyError:
+        logger.exception("Ошибка создания таблиц")
+        raise HTTPException(
+            status_code=500,
+            detail="Database initialization failed"
+        )
