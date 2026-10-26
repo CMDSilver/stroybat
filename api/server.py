@@ -1,8 +1,10 @@
 from fastapi import FastAPI, HTTPException
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from api.database import engine
+from api.database import engine, SessionLocal
+from api.models import Project
+from api.schemas import ProjectResponse
 
 
 app = FastAPI(title="Stroybat API")
@@ -34,3 +36,21 @@ def db_check():
             status_code=503,
             detail="Database connection failed"
         )
+
+
+@app.get("/projects", response_model=list[ProjectResponse])
+def get_projects():
+    db = SessionLocal()
+
+    try:
+        projects = db.scalars(select(Project)).all()
+        return projects
+
+    except SQLAlchemyError:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to get projects"
+        )
+
+    finally:
+        db.close()
