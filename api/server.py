@@ -1,8 +1,12 @@
+import os
+import secrets
+
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from api.database import engine
+from api.database import engine, Base
+from api import models
 
 app = FastAPI(title="Stroybat API")
 
@@ -32,4 +36,24 @@ def db_check():
         raise HTTPException(
             status_code=503,
             detail="Database connection failed"
+        )
+
+
+@app.post("/init-db")
+def init_db(key: str):
+    secret_key = os.getenv("INIT_DB_SECRET")
+
+    if not secret_key or not secrets.compare_digest(key, secret_key):
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden"
+        )
+
+    try:
+        Base.metadata.create_all(bind=engine)
+        return {"status": "ok", "message": "Таблицы созданы"}
+    except SQLAlchemyError:
+        raise HTTPException(
+            status_code=500,
+            detail="Database initialization failed"
         )
