@@ -10,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from api.database import engine, SessionLocal
 from api.models import Project
-from api.schemas import ProjectResponse
+from api.schemas import ProjectResponse, ProjectCreate
 
 
 app = FastAPI(title="Stroybat API")
@@ -117,6 +117,38 @@ def get_projects():
 
             detail="Failed to get projects"
 
+        )
+
+    finally:
+        db.close()
+
+
+@app.post("/projects", response_model=ProjectResponse, status_code=201)
+def create_project(project_data: ProjectCreate):
+    db = SessionLocal()
+
+    try:
+        project = Project(**project_data.model_dump())
+
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+
+        return project
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Ошибка данных проекта. Проверь manager_id и даты."
+        )
+
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Ошибка при создании проекта")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create project"
         )
 
     finally:
