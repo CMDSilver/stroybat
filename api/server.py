@@ -91,6 +91,24 @@ def create_user(user_data: UserCreate):
         db.close()
 
 
+@app.get("/users", response_model=list[UserResponse])
+def get_users():
+    db = SessionLocal()
+
+    try:
+        users = db.scalars(select(User)).all()
+        return users
+
+    except SQLAlchemyError:
+        logger.exception("Ошибка при получении пользователей")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to get users"
+        )
+
+    finally:
+        db.close()
+
 
 
 
