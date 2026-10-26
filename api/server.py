@@ -21,6 +21,7 @@ from api.schemas import (
     EstimateResponse,
     EstimateItemCreate,
     EstimateItemResponse,
+    LoginRequest
 )
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import select, text
@@ -35,6 +36,36 @@ from api.models import (
     Estimate,
     EstimateItem,
 )
+import hashlib
+import secrets
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    hashed = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        200_000,
+    ).hex()
+
+    return f"{salt}${hashed}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        salt, expected_hash = stored_hash.split("$", 1)
+        actual_hash = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt.encode("utf-8"),
+            200_000,
+        ).hex()
+
+        return secrets.compare_digest(actual_hash, expected_hash)
+    except ValueError:
+        return False
+
 
 
 app = FastAPI(title="Stroybat API")
@@ -62,6 +93,7 @@ def create_role(role_data: RoleCreate):
     finally:
         db.close()
 
+
 @app.post("/users", response_model=UserResponse, status_code=201)
 def create_user(user_data: UserCreate):
     db = SessionLocal()
@@ -71,7 +103,7 @@ def create_user(user_data: UserCreate):
             full_name=user_data.full_name,
             username=user_data.username,
             role_id=user_data.role_id,
-            password_hash="demo-user-no-auth",
+            password_hash=hash_password(user_data.password),
         )
 
         db.add(user)
@@ -84,11 +116,12 @@ def create_user(user_data: UserCreate):
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail="Пользователь уже существует или указана неверная роль"
+            detail="Пользователь уже существует или указана неверная роль",
         )
 
     finally:
         db.close()
+
 
 
 @app.get("/users", response_model=list[UserResponse])
@@ -522,5 +555,64 @@ def get_estimate_total(estimate_id: int):
             "materials_total": materials_total,
             "grand_total": works_total + materials_total
         }
+    finally:
+        db.close()
+
+    @app.post("/login", response_model=UserResponse)
+    def login(login_data: LoginRequest):
+        db = SessionLocal()
+
+        try:
+            user = db.scalars(
+                select(User).where(
+                    User.username == login_data.username
+                )
+            ).first()
+
+            if (
+                    user is None
+                    or not user.is_active
+                    or not verify_password(
+                login_data.password,
+                user.password_hash,
+            )
+            ):
+                raise HTTPException(
+                    status_code=401,
+                    detail="Неверный логин или пароль",
+                )
+
+            return user
+
+        finally:
+            db.close()
+
+
+@app.post("/login", response_model=UserResponse)
+def login(login_data: LoginRequest):
+    db = SessionLocal()
+
+    try:
+        user = db.scalars(
+            select(User).where(
+                User.username == login_data.username
+            )
+        ).first()
+
+        if (
+            user is None
+            or not user.is_active
+            or not verify_password(
+                login_data.password,
+                user.password_hash,
+            )
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Неверный логин или пароль",
+            )
+
+        return user
+
     finally:
         db.close()

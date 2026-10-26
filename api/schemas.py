@@ -13,10 +13,13 @@ class RoleResponse(RoleCreate):
     id: int
 
 
+
 class UserCreate(BaseModel):
     full_name: str
     username: str
+    password: str
     role_id: int
+
 
 
 class UserResponse(BaseModel):
@@ -28,6 +31,9 @@ class UserResponse(BaseModel):
     role_id: int
     is_active: bool
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 class ProjectCreate(BaseModel):
     name: str
