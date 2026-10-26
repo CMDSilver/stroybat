@@ -1,7 +1,9 @@
 import logging
 logger = logging.getLogger(__name__)
 
-
+from sqlalchemy.exc import IntegrityError
+from api.models import Role, User
+from api.schemas import RoleCreate, RoleResponse, UserCreate, UserResponse
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -12,6 +14,60 @@ from api.schemas import ProjectResponse
 
 
 app = FastAPI(title="Stroybat API")
+
+@app.post("/roles", response_model=RoleResponse, status_code=201)
+def create_role(role_data: RoleCreate):
+    db = SessionLocal()
+
+    try:
+        role = Role(**role_data.model_dump())
+
+        db.add(role)
+        db.commit()
+        db.refresh(role)
+
+        return role
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Роль с таким названием уже существует"
+        )
+
+    finally:
+        db.close()
+
+@app.post("/users", response_model=UserResponse, status_code=201)
+def create_user(user_data: UserCreate):
+    db = SessionLocal()
+
+    try:
+        user = User(
+            full_name=user_data.full_name,
+            username=user_data.username,
+            role_id=user_data.role_id,
+            password_hash="demo-user-no-auth",
+        )
+
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        return user
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Пользователь уже существует или указана неверная роль"
+        )
+
+    finally:
+        db.close()
+
+
+
 
 
 @app.get("/")
