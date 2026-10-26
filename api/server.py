@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
-
+from sqlalchemy import inspect
 from api.database import engine, SessionLocal
 from api.models import Project
 from api.schemas import ProjectResponse
@@ -64,3 +64,8 @@ def get_projects():
 
     finally:
         db.close()
+
+@app.get("/db-tables")
+def db_tables():
+    inspector = inspect(engine)
+    return {"tables": inspector.get_table_names()}
