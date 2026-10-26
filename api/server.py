@@ -365,3 +365,144 @@ def update_task(task_id: int, data: TaskUpdate):
         raise HTTPException(500, "Failed to update task")
     finally:
         db.close()
+
+@app.get("/estimates", response_model=list[EstimateResponse])
+def get_estimates(project_id: int | None = None):
+    db = SessionLocal()
+    try:
+        query = select(Estimate)
+
+        if project_id is not None:
+            query = query.where(Estimate.project_id == project_id)
+
+        return db.scalars(query.order_by(Estimate.id.desc())).all()
+    finally:
+        db.close()
+
+
+@app.post(
+    "/estimates",
+    response_model=EstimateResponse,
+    status_code=201
+)
+def create_estimate(data: EstimateCreate):
+    db = SessionLocal()
+    try:
+        if db.get(Project, data.project_id) is None:
+            raise HTTPException(404, "Project not found")
+
+        if db.get(User, data.created_by) is None:
+            raise HTTPException(404, "User not found")
+
+        estimate = Estimate(**data.model_dump())
+        db.add(estimate)
+        db.commit()
+        db.refresh(estimate)
+        return estimate
+
+    except HTTPException:
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(400, "Проверьте данные сметы")
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Ошибка создания сметы")
+        raise HTTPException(500, "Failed to create estimate")
+    finally:
+        db.close()
+
+
+@app.get(
+    "/estimates/{estimate_id}/items",
+    response_model=list[EstimateItemResponse]
+)
+def get_estimate_items(estimate_id: int):
+    db = SessionLocal()
+    try:
+        if db.get(Estimate, estimate_id) is None:
+            raise HTTPException(404, "Estimate not found")
+
+        query = (
+            select(EstimateItem)
+            .where(EstimateItem.estimate_id == estimate_id)
+            .order_by(EstimateItem.id)
+        )
+        return db.scalars(query).all()
+    finally:
+        db.close()
+
+
+@app.post(
+    "/estimates/{estimate_id}/items",
+    response_model=EstimateItemResponse,
+    status_code=201
+)
+def add_estimate_item(
+    estimate_id: int,
+    data: EstimateItemCreate
+):
+    db = SessionLocal()
+    try:
+        if db.get(Estimate, estimate_id) is None:
+            raise HTTPException(404, "Estimate not found")
+
+        item = EstimateItem(
+            estimate_id=estimate_id,
+            **data.model_dump()
+        )
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        return item
+
+    except HTTPException:
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            400,
+            "Проверьте тип позиции, количество и цену"
+        )
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Ошибка добавления позиции сметы")
+        raise HTTPException(500, "Failed to add estimate item")
+    finally:
+        db.close()
+
+
+@app.get("/estimates/{estimate_id}/total")
+def get_estimate_total(estimate_id: int):
+    db = SessionLocal()
+    try:
+        if db.get(Estimate, estimate_id) is None:
+            raise HTTPException(404, "Estimate not found")
+
+        items = db.scalars(
+            select(EstimateItem).where(
+                EstimateItem.estimate_id == estimate_id
+            )
+        ).all()
+
+        works_total = sum(
+            item.quantity * item.unit_price
+            for item in items
+            if item.item_type == "work"
+        )
+
+        materials_total = sum(
+            item.quantity * item.unit_price
+            for item in items
+            if item.item_type == "material"
+        )
+
+        return {
+            "estimate_id": estimate_id,
+            "items_count": len(items),
+            "works_total": works_total,
+            "materials_total": materials_total,
+            "grand_total": works_total + materials_total
+        }
+    finally:
+        db.close()
