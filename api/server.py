@@ -7,7 +7,7 @@ from api.schemas import RoleCreate, RoleResponse, UserCreate, UserResponse
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
-
+from api.schemas import ProjectUpdate
 from api.database import engine, SessionLocal
 from api.models import Project
 from api.schemas import ProjectResponse, ProjectCreate
@@ -175,6 +175,41 @@ def get_project(project_id: int):
         raise HTTPException(
             status_code=500,
             detail="Failed to get project"
+        )
+
+    finally:
+        db.close()
+
+
+@app.put("/projects/{project_id}", response_model=ProjectResponse)
+def update_project(project_id: int, project_data: ProjectUpdate):
+    db = SessionLocal()
+
+    try:
+        project = db.get(Project, project_id)
+
+        if project is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Project not found"
+            )
+
+        update_data = project_data.model_dump(exclude_unset=True)
+
+        for field, value in update_data.items():
+            setattr(project, field, value)
+
+        db.commit()
+        db.refresh(project)
+
+        return project
+
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Ошибка при обновлении проекта")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to update project"
         )
 
     finally:

@@ -42,3 +42,12 @@ class ProjectResponse(ProjectCreate):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    manager_id: int | None = None
