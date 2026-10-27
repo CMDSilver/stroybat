@@ -174,11 +174,19 @@ def db_check():
 
 
 @app.get("/projects", response_model=list[ProjectResponse])
-def get_projects():
+def get_projects(search: str | None = None,
+                 status: str | None = None):
     db = SessionLocal()
 
     try:
-        projects = db.scalars(select(Project)).all()
+        query = select(Project).order_by(Project.id)
+
+        if search:
+            query = query.where(Project.name.ilike(f"%{search}%"))
+        if status:
+            query = query.where(Project.status == status)
+
+        projects = db.scalars(query).all()
         return projects
 
 
@@ -279,12 +287,56 @@ def update_project(project_id: int, project_data: ProjectUpdate):
 
         return project
 
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Ошибка данных проекта. Проверь статус и даты."
+        )
+
     except SQLAlchemyError:
         db.rollback()
         logger.exception("Ошибка при обновлении проекта")
         raise HTTPException(
             status_code=500,
             detail="Failed to update project"
+        )
+
+    finally:
+        db.close()
+
+
+@app.delete("/projects/{project_id}")
+def delete_project(project_id: int):
+    db = SessionLocal()
+
+    try:
+        project = db.get(Project, project_id)
+
+        if project is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Project not found"
+            )
+
+        db.delete(project)
+        db.commit()
+
+        return {"message": "Проект удалён"}
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Нельзя удалить проект: на него ссылаются другие записи"
+        )
+
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Ошибка при удалении проекта")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to delete project"
         )
 
     finally:

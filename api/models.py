@@ -1,3 +1,6 @@
+from datetime import date, datetime
+from decimal import Decimal
+
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -41,7 +44,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False
     )
-    created_at: Mapped[DateTime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
@@ -73,12 +76,12 @@ class Project(Base):
     status: Mapped[str] = mapped_column(
         String(30), default="new", nullable=False
     )
-    start_date: Mapped[Date | None] = mapped_column(Date)
-    end_date: Mapped[Date | None] = mapped_column(Date)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
     manager_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"), nullable=False
     )
-    created_at: Mapped[DateTime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
@@ -116,8 +119,8 @@ class ProjectStage(Base):
     )
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
-    start_date: Mapped[Date | None] = mapped_column(Date)
-    end_date: Mapped[Date | None] = mapped_column(Date)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(
         String(30), default="new", nullable=False
     )
@@ -163,8 +166,8 @@ class Task(Base):
     status: Mapped[str] = mapped_column(
         String(30), default="new", nullable=False
     )
-    due_date: Mapped[Date | None] = mapped_column(Date)
-    created_at: Mapped[DateTime] = mapped_column(
+    due_date: Mapped[date | None] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
@@ -206,10 +209,10 @@ class Estimate(Base):
     created_by: Mapped[int] = mapped_column(
         ForeignKey("users.id"), nullable=False
     )
-    created_at: Mapped[DateTime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
-    updated_at: Mapped[DateTime] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
@@ -246,10 +249,10 @@ class EstimateItem(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     unit: Mapped[str] = mapped_column(String(30), nullable=False)
-    quantity: Mapped[float] = mapped_column(
+    quantity: Mapped[Decimal] = mapped_column(
         Numeric(12, 3), nullable=False
     )
-    unit_price: Mapped[float] = mapped_column(
+    unit_price: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False
     )
 
